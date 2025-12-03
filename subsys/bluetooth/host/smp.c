@@ -422,6 +422,9 @@ static bool smp_keys_check(struct bt_conn *conn)
 		return false;
 	}
 
+	LOG_HEXDUMP_ERR(conn->le.keys->ltk.val, sizeof(conn->le.keys->ltk.val),
+			"LTK value in keys (check if manually set):");
+
 	if (conn->required_sec_level >= BT_SECURITY_L3 &&
 	    !(conn->le.keys->flags & BT_KEYS_AUTHENTICATED)) {
 		return false;
@@ -2783,6 +2786,8 @@ static uint8_t smp_encrypt_info(struct bt_smp *smp, struct net_buf *buf)
 			return BT_SMP_ERR_UNSPECIFIED;
 		}
 
+		LOG_HEXDUMP_ERR(req->ltk, 16, "LTK received from remote (check if matches manually set):");
+
 		memcpy(keys->ltk.val, req->ltk, 16);
 	}
 
@@ -3076,6 +3081,9 @@ bool bt_smp_request_ltk(struct bt_conn *conn, uint64_t rand, uint16_t ediv, uint
 	if (ediv == 0U && rand == 0U &&
 	    conn->le.keys && (conn->le.keys->keys & BT_KEYS_LTK_P256)) {
 		enc_size = conn->le.keys->enc_size;
+
+		LOG_HEXDUMP_ERR(conn->le.keys->ltk.val, enc_size,
+				"LTK being used for encryption (check if manually set):");
 
 		memcpy(ltk, conn->le.keys->ltk.val, enc_size);
 		if (enc_size < BT_SMP_MAX_ENC_KEY_SIZE) {

@@ -57,6 +57,9 @@
 #if defined(CONFIG_BT_CLASSIC)
 #include "host/classic/shell/bredr.h"
 #endif
+#if defined(CONFIG_BT_NRF_CONN_SET_LTK)
+#include <bluetooth/nrf/host_extensions.h>
+#endif
 
 static bool no_settings_load;
 
@@ -755,6 +758,12 @@ static void print_le_oob(const struct shell *sh, struct bt_le_oob *oob)
 	shell_print(sh, "%29s %32s %32s", addr, r, c);
 }
 
+#if defined(CONFIG_BT_NRF_CONN_SET_LTK)
+static struct bt_nrf_ltk custom_ltk;
+static bool custom_ltk_set;
+static bool custom_ltk_authenticated;
+#endif
+
 static void connected(struct bt_conn *conn, uint8_t err)
 {
 	char addr[BT_ADDR_LE_STR_LEN];
@@ -788,6 +797,18 @@ static void connected(struct bt_conn *conn, uint8_t err)
 			default_conn = bt_conn_ref(conn);
 		}
 	}
+
+#if defined(CONFIG_BT_NRF_CONN_SET_LTK)
+	/* Apply custom LTK if set */
+	if (custom_ltk_set) {
+		int ltk_err = bt_nrf_conn_set_ltk(conn, &custom_ltk, custom_ltk_authenticated);
+		if (ltk_err) {
+			bt_shell_error("Failed to set custom LTK (err %d)", ltk_err);
+		} else {
+			bt_shell_print("Custom LTK applied to %s", addr);
+		}
+	}
+#endif
 
 done:
 	/* clear connection reference for sec mode 3 pairing */
@@ -919,6 +940,16 @@ static void security_changed(struct bt_conn *conn, bt_security_t level,
 			       "reason: %s (%d)",
 			       addr, level, security_err_str(err), err);
 	}
+
+	struct bt_conn_info info;
+
+	if (bt_conn_get_info(conn, &info) < 0) {
+		return;
+	}
+
+	bt_shell_print("Encryption key size: %d", info.security.enc_key_size);
+	bt_shell_print("Security level: %d", info.security.level);
+	bt_shell_print("Security flags: 0x%02x", info.security.flags);
 }
 #endif
 
@@ -4460,6 +4491,10 @@ static void auth_pairing_complete(struct bt_conn *conn, bool bonded)
 		return;
 	}
 
+	bt_shell_print("Encryption key size: %d", info.security.enc_key_size);
+	bt_shell_print("Security level: %d", info.security.level);
+	bt_shell_print("Security flags: 0x%02x", info.security.flags);
+
 	switch (info.type) {
 	case BT_CONN_TYPE_LE:
 		bt_addr_le_to_str(info.le.dst, addr, sizeof(addr));
@@ -4576,6 +4611,59 @@ static uint32_t auth_app_passkey(struct bt_conn *conn)
 	return app_passkey;
 }
 #endif /* CONFIG_BT_APP_PASSKEY */
+
+// bt set-ltk 0123456789abcdef0123456789abcdef true
+#if defined(CONFIG_BT_NRF_CONN_SET_LTK)
+static int cmd_set_ltk(const struct shell *sh, size_t argc, char *argv[])
+{
+	struct bt_nrf_ltk ltk;
+	size_t len;
+	int err = 0;
+	bool authenticated = false;
+
+	if (argc < 2) {
+		/* Clear the custom LTK */
+		custom_ltk_set = false;
+		shell_print(sh, "Custom LTK cleared");
+		return 0;
+	}
+
+	/* Parse LTK hex string (32 hex characters = 16 bytes) */
+	len = hex2bin(argv[1], strlen(argv[1]), ltk.val, sizeof(ltk.val));
+	if (len != sizeof(ltk.val)) {
+		shell_error(sh, "LTK must be 32 hex characters (16 bytes), got %zu bytes", len);
+		return -EINVAL;
+	}
+
+	/* Parse authenticated flag if provided */
+	if (argc > 2) {
+		authenticated = shell_strtobool(argv[2], 0, &err);
+		if (err) {
+			shell_error(sh, "Invalid authenticated value: %s", argv[2]);
+			return -EINVAL;
+		}
+	}
+
+	/* Store the LTK */
+	memcpy(custom_ltk.val, ltk.val, sizeof(custom_ltk.val));
+	custom_ltk_set = true;
+	custom_ltk_authenticated = authenticated;
+
+	shell_print(sh, "Custom LTK set (authenticated: %s)", authenticated ? "yes" : "no");
+
+	/* Apply to default connection if available */
+	if (default_conn) {
+		err = bt_nrf_conn_set_ltk(default_conn, &custom_ltk, authenticated);
+		if (err) {
+			shell_error(sh, "Failed to set LTK on default connection (err %d)", err);
+			return err;
+		}
+		shell_print(sh, "LTK applied to default connection");
+	}
+
+	return 0;
+}
+#endif /* CONFIG_BT_NRF_CONN_SET_LTK */
 
 static struct bt_conn_auth_cb auth_cb_display = {
 	.passkey_display = auth_passkey_display,
@@ -5530,6 +5618,10 @@ SHELL_STATIC_SUBCMD_SET_CREATE(bt_cmds,
 	SHELL_CMD_ARG(app-passkey, NULL, "[passkey]", cmd_app_passkey,
 		      1, 1),
 #endif /* CONFIG_BT_APP_PASSKEY */
+#if defined(CONFIG_BT_NRF_CONN_SET_LTK)
+	SHELL_CMD_ARG(set-ltk, NULL, "[ltk_hex] [authenticated]", cmd_set_ltk,
+		      1, 2),
+#endif /* CONFIG_BT_NRF_CONN_SET_LTK */
 #endif /* CONFIG_BT_SMP || CONFIG_BT_CLASSIC) */
 #endif /* CONFIG_BT_CONN */
 
