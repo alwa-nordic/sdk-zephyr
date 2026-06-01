@@ -127,6 +127,10 @@ static K_KERNEL_STACK_DEFINE(rx_thread_stack, CONFIG_BT_RX_STACK_SIZE);
 
 static void init_work(struct k_work *work);
 
+#if defined(CONFIG_BT_PRIVACY)
+struct k_spinlock bt_dev_irk_lock;
+#endif
+
 struct bt_dev bt_dev = {
 	.init          = Z_WORK_INITIALIZER(init_work),
 #if defined(CONFIG_BT_PRIVACY)

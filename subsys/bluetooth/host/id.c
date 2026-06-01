@@ -1318,8 +1318,12 @@ int bt_id_get_irk(uint8_t id, uint8_t irk[BT_IRK_SIZE])
 		return -EINVAL;
 	}
 
-	/* Access to bt_dev.irk[] must be synchronized with writers. */
-	memcpy(irk, bt_dev.irk[id], BT_IRK_SIZE);
+	{
+		k_spinlock_key_t key = k_spin_lock(&bt_dev_irk_lock);
+
+		memcpy(irk, bt_dev.irk[id], BT_IRK_SIZE);
+		k_spin_unlock(&bt_dev_irk_lock, key);
+	}
 
 	return 0;
 }
@@ -1363,21 +1367,26 @@ static int id_create(uint8_t id, bt_addr_le_t *addr, uint8_t *irk)
 
 #if defined(CONFIG_BT_PRIVACY)
 	{
-		uint8_t zero_irk[16] = { 0 };
+		uint8_t new_irk[BT_IRK_SIZE];
+		uint8_t zero_irk[BT_IRK_SIZE] = { 0 };
+		k_spinlock_key_t key;
 
-		if (irk && memcmp(irk, zero_irk, 16)) {
-			memcpy(&bt_dev.irk[id], irk, 16);
+		if (irk && memcmp(irk, zero_irk, BT_IRK_SIZE)) {
+			memcpy(new_irk, irk, BT_IRK_SIZE);
 		} else {
-			int err;
+			int rand_err = bt_rand(new_irk, BT_IRK_SIZE);
 
-			err = bt_rand(&bt_dev.irk[id], 16);
-			if (err) {
-				return err;
+			if (rand_err) {
+				return rand_err;
 			}
+		}
 
-			if (irk) {
-				memcpy(irk, &bt_dev.irk[id], 16);
-			}
+		key = k_spin_lock(&bt_dev_irk_lock);
+		memcpy(&bt_dev.irk[id], new_irk, BT_IRK_SIZE);
+		k_spin_unlock(&bt_dev_irk_lock, key);
+
+		if (irk && !memcmp(irk, zero_irk, BT_IRK_SIZE)) {
+			memcpy(irk, new_irk, BT_IRK_SIZE);
 		}
 
 #if defined(CONFIG_BT_RPA_SHARING)
@@ -1538,7 +1547,12 @@ int bt_id_delete(uint8_t id)
 	}
 
 #if defined(CONFIG_BT_PRIVACY)
-	(void)memset(bt_dev.irk[id], 0, 16);
+	{
+		k_spinlock_key_t key = k_spin_lock(&bt_dev_irk_lock);
+
+		(void)memset(bt_dev.irk[id], 0, BT_IRK_SIZE);
+		k_spin_unlock(&bt_dev_irk_lock, key);
+	}
 #endif
 	bt_addr_le_copy(&bt_dev.id_addr[id], BT_ADDR_LE_ANY);
 

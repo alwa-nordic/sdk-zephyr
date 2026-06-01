@@ -410,7 +410,9 @@ struct bt_dev {
 	const struct device *hci;
 
 #if defined(CONFIG_BT_PRIVACY)
-	/* Local Identity Resolving Key */
+	/* Local Identity Resolving Keys. Access must be synchronized using
+	 * bt_dev_irk_lock. Use bt_id_get_irk() to read from application code.
+	 */
 	uint8_t			irk[CONFIG_BT_ID_MAX][16];
 
 #if defined(CONFIG_BT_RPA_SHARING)
@@ -436,6 +438,9 @@ struct bt_dev {
 };
 
 extern struct bt_dev bt_dev;
+#if defined(CONFIG_BT_PRIVACY)
+extern struct k_spinlock bt_dev_irk_lock;
+#endif
 extern const struct bt_conn_auth_cb *bt_auth;
 extern sys_slist_t bt_auth_info_cbs;
 enum bt_security_err bt_security_err_get(uint8_t hci_err);

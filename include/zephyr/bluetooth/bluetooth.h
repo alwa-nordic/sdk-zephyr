@@ -437,7 +437,8 @@ void bt_id_get(bt_addr_le_t *addrs, size_t *count);
  *
  * Returns the local IRK associated with the identity @a id. The IRK is the
  * value used by the host for RPA generation and SMP Identity Information when
- * @kconfig{CONFIG_BT_PRIVACY} is enabled.
+ * @kconfig{CONFIG_BT_PRIVACY} is enabled. Access is synchronized with other
+ * host users of the IRK store.
  *
  * @param id  Identity handle (as returned by @ref bt_id_create).
  * @param irk Buffer to store the IRK (must be @ref BT_IRK_SIZE octets).

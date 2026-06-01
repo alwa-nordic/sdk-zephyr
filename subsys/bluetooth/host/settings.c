@@ -277,6 +277,8 @@ static int set_setting(const char *name, size_t len_rd, settings_read_cb read_cb
 
 #if defined(CONFIG_BT_PRIVACY)
 	if ((len == 3) && (memcmp(name, "irk", len) == 0)) {
+		k_spinlock_key_t key = k_spin_lock(&bt_dev_irk_lock);
+
 		len = read_cb(cb_arg, bt_dev.irk, sizeof(bt_dev.irk));
 		if (len < sizeof(bt_dev.irk[0])) {
 			if (len < 0) {
@@ -294,6 +296,8 @@ static int set_setting(const char *name, size_t len_rd, settings_read_cb read_cb
 				LOG_DBG("IRK[%d] %s", i, bt_hex(bt_dev.irk[i], 16));
 			}
 		}
+
+		k_spin_unlock(&bt_dev_irk_lock, key);
 
 		return 0;
 	}
