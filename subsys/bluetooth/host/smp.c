@@ -1212,6 +1212,7 @@ static void smp_br_distribute_keys(struct bt_smp_br *smp)
 		struct bt_smp_ident_info *id_info;
 		struct bt_smp_ident_addr_info *id_addr_info;
 		struct net_buf *buf;
+		int err;
 
 		smp->local_distributed |= BT_SMP_DIST_ID_KEY;
 
@@ -1223,7 +1224,11 @@ static void smp_br_distribute_keys(struct bt_smp_br *smp)
 		}
 
 		id_info = net_buf_add(buf, sizeof(*id_info));
-		memcpy(id_info->irk, bt_dev.irk[conn->id], 16);
+		err = bt_id_get_irk(conn->id, id_info->irk);
+		if (err) {
+			net_buf_unref(buf);
+			return;
+		}
 
 		smp_br_send(smp, buf, NULL);
 
@@ -2328,6 +2333,7 @@ static uint8_t bt_smp_distribute_keys(struct bt_smp *smp)
 		struct bt_smp_ident_info *id_info;
 		struct bt_smp_ident_addr_info *id_addr_info;
 		struct net_buf *buf;
+		int err;
 
 		buf = smp_create_pdu(smp, BT_SMP_CMD_IDENT_INFO,
 				     sizeof(*id_info));
@@ -2337,7 +2343,11 @@ static uint8_t bt_smp_distribute_keys(struct bt_smp *smp)
 		}
 
 		id_info = net_buf_add(buf, sizeof(*id_info));
-		memcpy(id_info->irk, bt_dev.irk[conn->id], 16);
+		err = bt_id_get_irk(conn->id, id_info->irk);
+		if (err) {
+			net_buf_unref(buf);
+			return BT_SMP_ERR_UNSPECIFIED;
+		}
 
 		smp_send(smp, buf, NULL, NULL);
 

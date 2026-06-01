@@ -530,7 +530,19 @@ int bt_settings_delete_id(void)
 static void do_store_irk(struct k_work *work)
 {
 #if defined(CONFIG_BT_PRIVACY)
-	int err = bt_settings_store("irk", 0, NULL, bt_dev.irk, ID_DATA_LEN(bt_dev.irk));
+	uint8_t irk[CONFIG_BT_ID_MAX][BT_IRK_SIZE];
+	uint8_t id;
+	int err;
+
+	for (id = 0; id < bt_dev.id_count; id++) {
+		err = bt_id_get_irk(id, irk[id]);
+		if (err) {
+			LOG_ERR("Failed to read IRK (err %d)", err);
+			return;
+		}
+	}
+
+	err = bt_settings_store("irk", 0, NULL, irk, ID_DATA_LEN(irk));
 
 	if (err) {
 		LOG_ERR("Failed to save IRK (err %d)", err);

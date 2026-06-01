@@ -360,7 +360,16 @@ int bt_id_set_private_addr(uint8_t id)
 		return 0;
 	}
 
-	err = bt_rpa_create(bt_dev.irk[id], &rpa);
+	{
+		uint8_t local_irk[BT_IRK_SIZE];
+
+		err = bt_id_get_irk(id, local_irk);
+		if (err) {
+			return err;
+		}
+
+		err = bt_rpa_create(local_irk, &rpa);
+	}
 	if (!err) {
 		err = set_random_address(&rpa);
 		if (!err) {
@@ -387,7 +396,14 @@ static int adv_rpa_get(struct bt_le_ext_adv *adv, bt_addr_t *rpa)
 	int err;
 
 	if (bt_addr_eq(&bt_dev.rpa[adv->id], BT_ADDR_NONE)) {
-		err = bt_rpa_create(bt_dev.irk[adv->id], &bt_dev.rpa[adv->id]);
+		uint8_t local_irk[BT_IRK_SIZE];
+
+		err = bt_id_get_irk(adv->id, local_irk);
+		if (err) {
+			return err;
+		}
+
+		err = bt_rpa_create(local_irk, &bt_dev.rpa[adv->id]);
 		if (err) {
 			return err;
 		}
@@ -402,7 +418,16 @@ static int adv_rpa_get(struct bt_le_ext_adv *adv, bt_addr_t *rpa)
 {
 	int err;
 
-	err = bt_rpa_create(bt_dev.irk[adv->id], rpa);
+	{
+		uint8_t local_irk[BT_IRK_SIZE];
+
+		err = bt_id_get_irk(adv->id, local_irk);
+		if (err) {
+			return err;
+		}
+
+		err = bt_rpa_create(local_irk, rpa);
+	}
 	if (err) {
 		return err;
 	}
@@ -883,6 +908,7 @@ static int hci_id_add(uint8_t id, const bt_addr_le_t *addr, uint8_t peer_irk[16]
 {
 	struct bt_hci_cp_le_add_dev_to_rl *cp;
 	struct net_buf *buf;
+	int err;
 
 	if (id >= CONFIG_BT_ID_MAX) {
 		return -EINVAL;
@@ -900,7 +926,11 @@ static int hci_id_add(uint8_t id, const bt_addr_le_t *addr, uint8_t peer_irk[16]
 	memcpy(cp->peer_irk, peer_irk, 16);
 
 #if defined(CONFIG_BT_PRIVACY)
-	(void)memcpy(cp->local_irk, &bt_dev.irk[id], 16);
+	err = bt_id_get_irk(id, cp->local_irk);
+	if (err) {
+		net_buf_unref(buf);
+		return err;
+	}
 #else
 	(void)memset(cp->local_irk, 0, 16);
 #endif

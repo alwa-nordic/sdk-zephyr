@@ -4096,10 +4096,13 @@ static void bt_dev_show_info(void)
 
 	if (IS_ENABLED(CONFIG_BT_LOG_SNIFFER_INFO)) {
 #if defined(CONFIG_BT_PRIVACY)
-		uint8_t irk[16];
+		uint8_t host_irk[BT_IRK_SIZE];
+		uint8_t irk[BT_IRK_SIZE];
 
-		sys_memcpy_swap(irk, bt_dev.irk[0], 16);
-		LOG_INF("IRK%s: 0x%s", bt_dev.id_count > 1 ? "[0]" : "", bt_hex(irk, 16));
+		if (!bt_id_get_irk(0, host_irk)) {
+			sys_memcpy_swap(irk, host_irk, BT_IRK_SIZE);
+			LOG_INF("IRK%s: 0x%s", bt_dev.id_count > 1 ? "[0]" : "", bt_hex(irk, 16));
+		}
 #endif
 	}
 
@@ -4108,10 +4111,13 @@ static void bt_dev_show_info(void)
 
 		if (IS_ENABLED(CONFIG_BT_LOG_SNIFFER_INFO)) {
 #if defined(CONFIG_BT_PRIVACY)
-			uint8_t irk[16];
+			uint8_t host_irk[BT_IRK_SIZE];
+			uint8_t irk[BT_IRK_SIZE];
 
-			sys_memcpy_swap(irk, bt_dev.irk[i], 16);
-			LOG_INF("IRK[%d]: 0x%s", i, bt_hex(irk, 16));
+			if (!bt_id_get_irk(i, host_irk)) {
+				sys_memcpy_swap(irk, host_irk, BT_IRK_SIZE);
+				LOG_INF("IRK[%d]: 0x%s", i, bt_hex(irk, 16));
+			}
 #endif
 		}
 	}
