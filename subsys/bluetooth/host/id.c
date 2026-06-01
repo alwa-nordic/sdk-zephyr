@@ -1278,6 +1278,22 @@ void bt_id_get(bt_addr_le_t *addrs, size_t *count)
 	}
 }
 
+int bt_id_get_irk(uint8_t id, uint8_t irk[BT_IRK_SIZE])
+{
+	if (!IS_ENABLED(CONFIG_BT_PRIVACY)) {
+		return -ENOSYS;
+	}
+
+	if (irk == NULL || id >= bt_dev.id_count) {
+		return -EINVAL;
+	}
+
+	/* Access to bt_dev.irk[] must be synchronized with writers. */
+	memcpy(irk, bt_dev.irk[id], BT_IRK_SIZE);
+
+	return 0;
+}
+
 static int id_find(const bt_addr_le_t *addr)
 {
 	uint8_t id;

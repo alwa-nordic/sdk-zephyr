@@ -429,6 +429,25 @@ int bt_set_appearance(uint16_t new_appearance);
  */
 void bt_id_get(bt_addr_le_t *addrs, size_t *count);
 
+/** Identity Resolving Key size (octets). */
+#define BT_IRK_SIZE 16
+
+/**
+ * @brief Get the Identity Resolving Key for an identity.
+ *
+ * Returns the local IRK associated with the identity @a id. The IRK is the
+ * value used by the host for RPA generation and SMP Identity Information when
+ * @kconfig{CONFIG_BT_PRIVACY} is enabled.
+ *
+ * @param id  Identity handle (as returned by @ref bt_id_create).
+ * @param irk Buffer to store the IRK (must be @ref BT_IRK_SIZE octets).
+ *
+ * @return 0 on success, negative error code on failure.
+ * @retval -EINVAL Invalid parameters or identity handle.
+ * @retval -ENOSYS Privacy (@kconfig{CONFIG_BT_PRIVACY}) is not enabled.
+ */
+int bt_id_get_irk(uint8_t id, uint8_t irk[BT_IRK_SIZE]);
+
 /**
  * @brief Create a new identity address.
  *
